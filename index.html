@@ -143,8 +143,20 @@ const SETS=[
   ['for-the-first-time','for the first time','впервые','I flew alone for the first time.','Я впервые летел один.','I flew alone ___.','for the first time'],
   ['once','once','один раз','I\'ve been there once.','Я был там один раз.','I\'ve been there ___.','once'],
  ]},
+ /* 9th item = wrong forms shown as traps in the gap exercise */
+ {id:'ing', title:'Набор 2 · Глагол + -ing', words:[
+  ['suggest','suggest','предлагать','I suggest going to Georgia in May.','Предлагаю поехать в Грузию в мае.','I ___ to Georgia in May.','suggest going',[],['suggest to go','suggest go']],
+  ['mind','mind','быть против','Do you mind waiting five minutes?','Ты не против подождать пять минут?','Do you ___ five minutes?','mind waiting',[],['mind to wait','mind wait']],
+  ['enjoy','enjoy','получать удовольствие, любить делать','I enjoy cooking at the weekend.','Я люблю готовить по выходным.','I ___ at the weekend.','enjoy cooking',[],['enjoy to cook','enjoy cook']],
+  ['avoid','avoid','избегать, стараться не','I avoid flying at night.','Я стараюсь не летать ночью.','I ___ at night.','avoid flying',[],['avoid to fly','avoid fly']],
+  ['finish','finish','закончить','I finished working at 7 p.m.','Я закончил работать в 7 вечера.','I ___ at 7 p.m.','finished working',[],['finished to work','finish to work']],
+  ['deny','deny','отрицать','He denied eating my chocolate.','Он отрицал, что съел мой шоколад.','He ___ my chocolate.','denied eating',[],['denied to eat','denied eat']],
+  ['look-forward-to-ing','look forward to seeing','с нетерпением ждать встречи','I\'m looking forward to seeing you.','С нетерпением жду встречи с тобой.','I\'m looking forward ___ you.','to seeing',[],['to see','seeing']],
+  ['cant-stand','can\'t stand','терпеть не могу','I can\'t stand waiting in queues.','Терпеть не могу стоять в очередях.','I ___ in queues.','can\'t stand waiting',['cannot stand'],['can\'t stand to waiting','can\'t stand wait']],
+  ['keep','keep','продолжать, не переставать','Keep practising every day!','Продолжай заниматься каждый день!','___ every day!','Keep practising',[],['Keep to practise','Keep practise']],
+ ]},
 ];
-const W=[]; SETS.forEach(s=>s.words.forEach(a=>W.push({id:a[0],en:a[1],ru:a[2],ex:a[3],exRu:a[4],gap:a[5],form:a[6],acc:a[7]||[],set:s.id})));
+const W=[]; SETS.forEach(s=>s.words.forEach(a=>W.push({id:a[0],en:a[1],ru:a[2],ex:a[3],exRu:a[4],gap:a[5],form:a[6],acc:a[7]||[],traps:a[8]||null,set:s.id})));
 const byId=Object.fromEntries(W.map(w=>[w.id,w]));
 const INTERVAL=[0,1,2,4,7,15]; // days until the next review for levels 0..5
 const KEY='babur_words_v1';
@@ -181,7 +193,12 @@ function beep(ok){ try{ actx ||= new (window.AudioContext||window.webkitAudioCon
 
 /* =================== HOME =================== */
 function dueWords(){ const d=dayNo(); return W.filter(w=>ws(w.id).seen && ws(w.id).due<=d); }
-function newWords(){ return W.filter(w=>!ws(w.id).seen); }
+/* new words alternate between sets, so a fresh set shows up right away */
+function newWords(){
+  const lists=SETS.map(s=>W.filter(w=>w.set===s.id && !ws(w.id).seen)); const out=[];
+  for(let i=0; lists.some(l=>i<l.length); i++) lists.forEach(l=>{ if(i<l.length) out.push(l[i]); });
+  return out;
+}
 let confirmReset=false;
 function home(){
   const d=dayNo(); const streak=(S.lastDay===d||S.lastDay===d-1)?S.streak:0;
@@ -189,7 +206,7 @@ function home(){
   const due=dueWords().length, fresh=newWords().length;
   const todayXp=S.xpDay[d]||0;
   app.innerHTML=`<div class="home">
-   <div><span class="muted small">Тренажёр слов</span><h1>${esc(SETS[0].title)}</h1></div>
+   <div><span class="muted small">Тренажёр слов</span><h1>Мои слова</h1></div>
    <div class="stats">
     <div class="stat"><b>🔥 ${streak}</b><span>дней подряд</span></div>
     <div class="stat"><b>${todayXp}</b><span>очков сегодня</span></div>
@@ -198,7 +215,8 @@ function home(){
    <div class="bar" aria-label="Выучено слов"><div style="width:${Math.round(learned/W.length*100)}%"></div></div>
    <button class="big" id="go">${due||fresh?'Начать тренировку':'Потренироваться ещё'}</button>
    <p class="small muted" style="margin:-6px 0 0;text-align:center">${due?`К повторению: ${due}. `:''}${fresh?`Новых слов: ${fresh}. `:''}${!due&&!fresh?'На сегодня всё повторено. Можно ещё раз закрепить самые слабые слова.':'Одна тренировка — около 5 минут.'}</p>
-   <div class="card wl">${W.map(w=>{const s=ws(w.id); return `<div class="row"><div><a href="${CAMB(w.en)}" target="_blank" rel="noopener">${esc(w.en)}</a><div class="small muted">${esc(w.ru)}</div></div><div class="dots" title="уровень ${s.lvl} из 5">${[1,2,3,4,5].map(i=>`<i class="${s.lvl>=i?'on':''}"></i>`).join('')}</div></div>`}).join('')}</div>
+   ${SETS.map(set=>{ const sw=W.filter(w=>w.set===set.id); const done=sw.filter(w=>ws(w.id).lvl>=3).length;
+     return `<div class="card wl"><div class="row" style="border-top:0"><b>${esc(set.title)}</b><span class="small muted">${done}/${sw.length}</span></div>${sw.map(w=>{const s=ws(w.id); return `<div class="row"><div><a href="${CAMB(w.en)}" target="_blank" rel="noopener">${esc(w.en)}</a><div class="small muted">${esc(w.ru)}</div></div><div class="dots" title="уровень ${s.lvl} из 5">${[1,2,3,4,5].map(i=>`<i class="${s.lvl>=i?'on':''}"></i>`).join('')}</div></div>`}).join('')}</div>`; }).join('')}
    <p class="small muted">Точки — насколько слово закрепилось. Слово повторяется через 1, 2, 4, 7 и 15 дней. Ошибка возвращает его на шаг назад. Нажмите на слово, и откроется словарь Cambridge.</p>
    <div class="card" style="display:flex;flex-direction:column;gap:8px">
     <button class="linkbtn" id="report">Скопировать отчёт для Claude</button>
@@ -240,7 +258,7 @@ function next(){
   answered=false;
   if(qi>=Q.length) return finish();
   cur=Q[qi]; const w=cur.w;
-  const others=n=>pickN(W.filter(x=>x!==w),n);
+  const others=n=>{ const same=W.filter(x=>x!==w && x.set===w.set); return pickN(same.length>=n?same:W.filter(x=>x!==w),n); };
   switch(cur.t){
     case 'intro':
       frame(`<div class="intro"><span class="new">НОВОЕ СЛОВО</span><span class="w">${esc(w.en)}</span><button class="spk huge" data-say="${esc(w.en)}" aria-label="Послушать">🔊</button><span class="tr">${esc(w.ru)}</span><span class="exm">${esc(w.ex)}</span><span class="small muted">${esc(w.exRu)}</span><a class="small" href="${CAMB(w.en)}" target="_blank" rel="noopener">Открыть в Cambridge ↗</a></div>`,'Запоминаем');
@@ -252,7 +270,7 @@ function next(){
       frame(`<div class="prompt ru">${esc(w.ru)}</div>${optsHtml(cur.opts.map(x=>x.en))}`,'Как это по-английски?'); break;
     case 'listen': cur.opts=shuffle([w,...others(3)]);
       frame(`<button class="spk huge" data-say="${esc(w.en)}" aria-label="Послушать ещё раз">🔊</button><button class="linkbtn" data-slow="${esc(w.en)}" style="align-self:center">🐢 медленнее</button>${optsHtml(cur.opts.map(x=>x.ru))}`,'Послушайте и выберите перевод'); setTimeout(()=>say(w.en),250); break;
-    case 'gap': cur.opts=shuffle([w,...others(3)]);
+    case 'gap': cur.opts=shuffle(w.traps ? [w,...w.traps.map(f=>({trap:true,form:f})),others(1)[0]] : [w,...others(3)]);
       frame(`<div class="gapline">${esc(w.gap).replace(/___/g,'<span class="blank"></span>')}</div><div class="sub small">${esc(w.exRu)}</div>${optsHtml(cur.opts.map(x=>x===w?w.form:formOf(x)))}`,'Вставьте пропущенное'); break;
     case 'tiles': {
       const toks=w.ex.split(' '); cur.toks=toks; cur.pool=shuffle(toks.map((t,i)=>({t,i}))); cur.ans=[];
