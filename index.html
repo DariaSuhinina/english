@@ -1,0 +1,385 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font-size:14px;font-family:system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Тренажёр слов</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Words">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+/* App layout: one exercise per screen, progress bar on top, answer bar pinned to the bottom (like language apps). */
+:root{
+  --bg:#F2F5FA; --surface:#FFFFFF; --ink:#16202B; --muted:#5D6877; --line:#D6DDE7;
+  --accent:#2B5FD9; --accent-ink:#FFFFFF; --accent-soft:#E4ECFC;
+  --ok:#1B8A4E; --ok-soft:#DDF3E6; --bad:#C23B2E; --bad-soft:#FBE4E1;
+  --gold:#E8A317; --tile:#FFFFFF; --tile-shadow:#C9D2DF;
+  --f:-apple-system,"Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E131B; --surface:#161E29; --ink:#E6EBF2; --muted:#9AA5B3; --line:#2A3544;
+  --accent:#7FA6FF; --accent-ink:#0B1426; --accent-soft:#1A2843;
+  --ok:#5ED394; --ok-soft:#143322; --bad:#FF8A7D; --bad-soft:#3A1A17;
+  --gold:#F2B940; --tile:#1D2734; --tile-shadow:#0A0F16; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E131B; --surface:#161E29; --ink:#E6EBF2; --muted:#9AA5B3; --line:#2A3544;
+  --accent:#7FA6FF; --accent-ink:#0B1426; --accent-soft:#1A2843;
+  --ok:#5ED394; --ok-soft:#143322; --bad:#FF8A7D; --bad-soft:#3A1A17;
+  --gold:#F2B940; --tile:#1D2734; --tile-shadow:#0A0F16; color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.45 var(--f);-webkit-text-size-adjust:100%;
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));padding-block:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+#app{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+button{font:inherit;color:inherit}
+h1,h2{margin:0;line-height:1.2}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+
+/* home */
+.home{display:flex;flex-direction:column;gap:16px;padding:24px 0 40px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.78rem;color:var(--muted)}
+.big{width:100%;border:0;border-radius:14px;padding:16px;font-weight:700;font-size:1.05rem;background:var(--accent);color:var(--accent-ink);box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 60%,#000);cursor:pointer}
+.big:active{transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.big.ghost{background:var(--surface);color:var(--accent);border:2px solid var(--line);box-shadow:0 4px 0 var(--line)}
+.big:disabled{opacity:.45;cursor:default}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.wl{display:flex;flex-direction:column}
+.wl .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.wl .row:first-child{border-top:0}
+.wl a{color:inherit;text-decoration:underline dotted var(--accent);text-underline-offset:3px}
+.dots{display:flex;gap:3px;flex:0 0 auto}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--ok)}
+.bar{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar>div{height:100%;background:var(--ok);border-radius:999px;transition:width .3s}
+.linkbtn{background:none;border:0;color:var(--accent);padding:6px 0;cursor:pointer;font-size:.9rem;text-align:left}
+
+/* exercise */
+.top{display:flex;align-items:center;gap:12px;padding:14px 0 6px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:2}
+.x{border:0;background:none;font-size:1.4rem;color:var(--muted);cursor:pointer;padding:4px 6px}
+.top .bar{flex:1}
+.combo{font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums;min-width:2.5em;text-align:right}
+.ex{flex:1;display:flex;flex-direction:column;gap:16px;padding:12px 0 150px}
+.kind{font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.prompt{font-size:1.45rem;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prompt.ru{font-weight:600;font-size:1.25rem}
+.sub{color:var(--muted)}
+.spk{border:2px solid var(--line);background:var(--surface);border-radius:12px;width:44px;height:44px;font-size:1.2rem;cursor:pointer;flex:0 0 auto}
+.spk.huge{width:96px;height:96px;font-size:2.4rem;border-radius:20px;margin:6px auto}
+.opts{display:grid;gap:10px}
+.o{border:2px solid var(--line);background:var(--surface);border-radius:14px;padding:14px;text-align:left;cursor:pointer;box-shadow:0 3px 0 var(--line);font-size:1.02rem}
+.o.sel{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 3px 0 var(--accent)}
+.o.right{border-color:var(--ok);background:var(--ok-soft);box-shadow:0 3px 0 var(--ok)}
+.o.wrong{border-color:var(--bad);background:var(--bad-soft);box-shadow:0 3px 0 var(--bad)}
+.o:disabled{cursor:default}
+.gapline{font-size:1.2rem;line-height:1.6}
+.gapline .blank{display:inline-block;min-width:4em;border-bottom:3px solid var(--accent);margin:0 .2em}
+.answer{min-height:64px;border-bottom:2px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;align-content:flex-start}
+.pool{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding-top:8px}
+.tile{border:2px solid var(--line);background:var(--tile);border-radius:12px;padding:8px 12px;box-shadow:0 3px 0 var(--tile-shadow);cursor:pointer;font-size:1.02rem}
+.tile.used{visibility:hidden}
+.pairs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pairs .o{text-align:center;padding:12px 8px;font-size:.98rem}
+.pairs .o.done{opacity:.25;box-shadow:none}
+input.typ{font:inherit;font-size:1.2rem;width:100%;padding:14px;border:2px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink)}
+input.typ:focus{outline:none;border-color:var(--accent)}
+.hint{font-size:.9rem;color:var(--muted);letter-spacing:.15em}
+.intro{background:var(--surface);border:2px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px;text-align:center}
+.intro .w{font-size:2rem;font-weight:800}
+.intro .tr{font-size:1.15rem}
+.intro .exm{font-style:italic}
+.new{align-self:center;background:var(--gold);color:#1c1300;font-weight:800;font-size:.75rem;letter-spacing:.08em;padding:3px 10px;border-radius:999px}
+
+/* bottom answer bar */
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--bg);border-top:2px solid var(--line);
+  padding:14px max(16px, env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-left,0px))}
+.foot .in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.foot.ok{background:var(--ok-soft);border-color:var(--ok)}
+.foot.bad{background:var(--bad-soft);border-color:var(--bad)}
+.fb{font-weight:800;font-size:1.1rem}
+.foot.ok .fb{color:var(--ok)} .foot.bad .fb{color:var(--bad)}
+.fbx{font-size:.95rem}
+.foot.ok .big{background:var(--ok);box-shadow:0 4px 0 color-mix(in srgb,var(--ok) 60%,#000)}
+.foot.bad .big{background:var(--bad);box-shadow:0 4px 0 color-mix(in srgb,var(--bad) 60%,#000)}
+
+/* result */
+.result{display:flex;flex-direction:column;gap:16px;padding:40px 0;text-align:center}
+.result .trophy{font-size:4rem}
+.confirm{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.copybox{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div id="app"></div>
+
+<script>
+/* =================== WORD SETS =================== */
+/* id, en, ru, ex (example), exRu, gap (example with ___), form (what goes in the gap), acc (extra accepted spellings) */
+const SETS=[
+ {id:'trips', title:'Набор 1 · Trips', words:[
+  ['set-off','set off','отправиться в путь','We set off at 5 a.m.','Мы выехали в 5 утра.','We ___ at 5 a.m.','set off'],
+  ['check-in','check in','заселиться, зарегистрироваться','We checked in at 3 p.m.','Мы заселились в 3 часа дня.','We ___ at 3 p.m.','checked in'],
+  ['get-around','get around','передвигаться по городу','We got around by tram.','Мы передвигались на трамвае.','We ___ by tram.','got around'],
+  ['end-up','end up','в итоге оказаться','We ended up in a tiny café.','В итоге мы оказались в крошечном кафе.','We ___ in a tiny café.','ended up'],
+  ['look-around','look around','осмотреться, побродить','Let\'s look around the old town.','Давай побродим по старому городу.','Let\'s ___ the old town.','look around'],
+  ['run-out-of','run out of','закончиться (о деньгах, времени)','We ran out of money on day five.','На пятый день у нас закончились деньги.','We ___ money on day five.','ran out of'],
+  ['book-in-advance','book in advance','забронировать заранее','It\'s cheaper to book in advance.','Дешевле бронировать заранее.','It\'s cheaper to ___.','book in advance'],
+  ['delayed','delayed','задержан (о рейсе)','Our flight was delayed.','Наш рейс задержали.','Our flight was ___.','delayed'],
+  ['jet-lag','jet lag','джетлаг','I had terrible jet lag.','У меня был ужасный джетлаг.','I had terrible ___.','jet lag',['jetlag']],
+  ['breathtaking','breathtaking','захватывающий дух','The view was breathtaking.','Вид был захватывающим.','The view was ___.','breathtaking'],
+  ['get-away','get away','вырваться отдохнуть','Let\'s get away for the weekend.','Давай вырвемся куда-нибудь на выходные.','Let\'s ___ for the weekend.','get away'],
+  ['pick-up','pick up','забрать (кого-то)','Can you pick me up at the airport?','Можешь забрать меня из аэропорта?','Can you ___ me ___ at the airport?','pick … up'],
+  ['hurry-up','hurry up','поторопиться','Hurry up, we\'re late!','Поторопись, мы опаздываем!','___, we\'re late!','Hurry up'],
+  ['take-off','take off','взлететь (о самолёте)','The plane took off on time.','Самолёт взлетел вовремя.','The plane ___ on time.','took off'],
+  ['look-forward-to','look forward to','с нетерпением ждать','I\'m looking forward to the trip.','Я с нетерпением жду поездки.','I\'m ___ the trip.','looking forward to'],
+  ['put-off','put off','отложить','Let\'s put off the meeting.','Давай отложим встречу.','Let\'s ___ the meeting.','put off'],
+  ['broke','broke','без денег, на мели','I\'m broke this month.','В этом месяце я на мели.','I\'m ___ this month.','broke'],
+  ['miss','miss','опоздать на (автобус, рейс)','I missed the bus.','Я опоздал на автобус.','I ___ the bus.','missed'],
+  ['do-a-favour','do a favour','сделать одолжение','Can you do me a favour?','Можешь сделать мне одолжение?','Can you ___ me a favour?','do',['do a favor']],
+  ['afford','afford','позволить себе (по деньгам)','We can\'t afford a new car.','Мы не можем позволить себе новую машину.','We can\'t ___ a new car.','afford'],
+  ['amazed','amazed','поражённый, в восторге','I was amazed by the mountains.','Я был поражён горами.','I was ___ by the mountains.','amazed'],
+  ['cuisine','cuisine','кухня (еда страны)','I love Georgian cuisine.','Я обожаю грузинскую кухню.','I love Georgian ___.','cuisine'],
+  ['for-the-first-time','for the first time','впервые','I flew alone for the first time.','Я впервые летел один.','I flew alone ___.','for the first time'],
+  ['once','once','один раз','I\'ve been there once.','Я был там один раз.','I\'ve been there ___.','once'],
+ ]},
+];
+const W=[]; SETS.forEach(s=>s.words.forEach(a=>W.push({id:a[0],en:a[1],ru:a[2],ex:a[3],exRu:a[4],gap:a[5],form:a[6],acc:a[7]||[],set:s.id})));
+const byId=Object.fromEntries(W.map(w=>[w.id,w]));
+const INTERVAL=[0,1,2,4,7,15]; // days until the next review for levels 0..5
+const KEY='babur_words_v1';
+
+/* =================== STATE =================== */
+const dayNo=(d=new Date())=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/86400000);
+function freshState(){ return {words:{}, xp:0, xpDay:{}, streak:0, lastDay:null, sessions:0, log:[]}; }
+let S=freshState();
+try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(freshState(), JSON.parse(raw)); }catch(e){}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function ws(id){ return S.words[id] ||= {lvl:0, due:0, seen:false, right:0, wrong:0}; }
+
+/* =================== HELPERS =================== */
+const app=document.getElementById('app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle=a=>{a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;};
+const pickN=(arr,n)=>shuffle(arr).slice(0,n);
+const norm=s=>String(s||'').toLowerCase().replace(/[’`]/g,"'").replace(/[.,!?…]/g,' ').replace(/\s+/g,' ').trim();
+const CAMB=w=>'https://dictionary.cambridge.org/search/direct/?datasetsearch=english&q='+encodeURIComponent(w);
+
+/* speech */
+let voice=null;
+function pickVoice(){ if(!('speechSynthesis' in window)) return; const vs=speechSynthesis.getVoices().filter(v=>/^en[-_](US|GB)/i.test(v.lang));
+  const r=v=>/samantha|natural|google us/i.test(v.name)?0:/online|google|daniel|karen/i.test(v.name)?1:2; voice=vs.sort((a,b)=>r(a)-r(b))[0]||null; }
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function say(t, slow){ if(!('speechSynthesis' in window)) return; try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=slow?0.75:0.95; if(voice) u.voice=voice; speechSynthesis.speak(u);}catch(e){} }
+
+/* sound effects (short tones) */
+let actx=null;
+function beep(ok){ try{ actx ||= new (window.AudioContext||window.webkitAudioContext)(); const t=actx.currentTime;
+  (ok?[660,880]:[300,220]).forEach((f,i)=>{ const o=actx.createOscillator(), g=actx.createGain(); o.frequency.value=f; o.type=ok?'sine':'triangle';
+    g.gain.setValueAtTime(0.0001,t+i*0.09); g.gain.exponentialRampToValueAtTime(0.18,t+i*0.09+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+i*0.09+0.16);
+    o.connect(g).connect(actx.destination); o.start(t+i*0.09); o.stop(t+i*0.09+0.18); }); }catch(e){} }
+
+/* =================== HOME =================== */
+function dueWords(){ const d=dayNo(); return W.filter(w=>ws(w.id).seen && ws(w.id).due<=d); }
+function newWords(){ return W.filter(w=>!ws(w.id).seen); }
+let confirmReset=false;
+function home(){
+  const d=dayNo(); const streak=(S.lastDay===d||S.lastDay===d-1)?S.streak:0;
+  const learned=W.filter(w=>ws(w.id).lvl>=3).length;
+  const due=dueWords().length, fresh=newWords().length;
+  const todayXp=S.xpDay[d]||0;
+  app.innerHTML=`<div class="home">
+   <div><span class="muted small">Тренажёр слов</span><h1>${esc(SETS[0].title)}</h1></div>
+   <div class="stats">
+    <div class="stat"><b>🔥 ${streak}</b><span>дней подряд</span></div>
+    <div class="stat"><b>${todayXp}</b><span>очков сегодня</span></div>
+    <div class="stat"><b>${learned}/${W.length}</b><span>слов выучено</span></div>
+   </div>
+   <div class="bar" aria-label="Выучено слов"><div style="width:${Math.round(learned/W.length*100)}%"></div></div>
+   <button class="big" id="go">${due||fresh?'Начать тренировку':'Потренироваться ещё'}</button>
+   <p class="small muted" style="margin:-6px 0 0;text-align:center">${due?`К повторению: ${due}. `:''}${fresh?`Новых слов: ${fresh}. `:''}${!due&&!fresh?'На сегодня всё повторено. Можно ещё раз закрепить самые слабые слова.':'Одна тренировка — около 5 минут.'}</p>
+   <div class="card wl">${W.map(w=>{const s=ws(w.id); return `<div class="row"><div><a href="${CAMB(w.en)}" target="_blank" rel="noopener">${esc(w.en)}</a><div class="small muted">${esc(w.ru)}</div></div><div class="dots" title="уровень ${s.lvl} из 5">${[1,2,3,4,5].map(i=>`<i class="${s.lvl>=i?'on':''}"></i>`).join('')}</div></div>`}).join('')}</div>
+   <p class="small muted">Точки — насколько слово закрепилось. Слово повторяется через 1, 2, 4, 7 и 15 дней. Ошибка возвращает его на шаг назад. Нажмите на слово, и откроется словарь Cambridge.</p>
+   <div class="card" style="display:flex;flex-direction:column;gap:8px">
+    <button class="linkbtn" id="report">Скопировать отчёт для Claude</button>
+    <textarea class="copybox" id="reportBox" readonly hidden></textarea>
+    ${confirmReset?`<div class="confirm"><span class="small">Удалить весь прогресс?</span><button class="linkbtn" id="resetYes" style="color:var(--bad)">Да, удалить</button><button class="linkbtn" id="resetNo">Отмена</button></div>`:`<button class="linkbtn" id="reset" style="color:var(--muted)">Сбросить прогресс</button>`}
+   </div></div>`;
+}
+
+/* =================== SESSION =================== */
+let Q=[], qi=0, cur=null, answered=false, sessWords=[], sessWrong=new Set(), combo=0, sessXp=0, correctCount=0, totalCount=0;
+const TYPES=[['en2ru','listen','ru2en'],['ru2en','listen','gap'],['gap','tiles','ru2en'],['tiles','type','gap'],['type','tiles','gap'],['type','tiles','listen']];
+function buildSession(){
+  const d=dayNo();
+  let pick=dueWords().sort((a,b)=>ws(a.id).lvl-ws(b.id).lvl).slice(0,6);
+  const nNew=Math.max(0,Math.min(4,8-pick.length));
+  pick=pick.concat(newWords().slice(0,nNew));
+  if(pick.length<5){ const rest=W.filter(w=>!pick.includes(w)&&ws(w.id).seen).sort((a,b)=>ws(a.id).lvl-ws(b.id).lvl); pick=pick.concat(rest.slice(0,6-pick.length)); }
+  sessWords=pick; sessWrong=new Set(); combo=0; sessXp=0; correctCount=0; totalCount=0;
+  const lead=[], rest=[];
+  pick.forEach(w=>{
+    const s=ws(w.id);
+    if(!s.seen){ lead.push({t:'intro',w}); lead.push({t:'en2ru',w}); rest.push({t:pickN(['listen','ru2en','gap'],1)[0],w}); }
+    else { pickN(TYPES[Math.min(s.lvl,5)],2).forEach(t=>rest.push({t,w})); }
+  });
+  Q=lead.concat(shuffle(rest));
+  const pool=pick.length>=5?pick:W.filter(w=>ws(w.id).seen||pick.includes(w));
+  if(pool.length>=4) Q.splice(Math.max(lead.length, Math.floor(Q.length*0.6)),0,{t:'match',ws:pickN(pool,Math.min(5,pool.length))});
+  qi=0; next();
+}
+function exitSession(){ try{speechSynthesis.cancel()}catch(e){} home(); }
+
+function frame(inner, kind){
+  const pct=Math.round(qi/(Q.length)*100);
+  app.innerHTML=`<div class="top"><button class="x" id="quit" aria-label="Выйти">✕</button><div class="bar"><div style="width:${pct}%"></div></div><span class="combo">${combo>=3?'🔥'+combo:''}</span></div>
+   <div class="ex"><span class="kind">${kind}</span>${inner}</div>
+   <div class="foot" id="foot"><div class="in"><div id="fbArea"></div><button class="big" id="check" disabled>Проверить</button></div></div>`;
+}
+function next(){
+  answered=false;
+  if(qi>=Q.length) return finish();
+  cur=Q[qi]; const w=cur.w;
+  const others=n=>pickN(W.filter(x=>x!==w),n);
+  switch(cur.t){
+    case 'intro':
+      frame(`<div class="intro"><span class="new">НОВОЕ СЛОВО</span><span class="w">${esc(w.en)}</span><button class="spk huge" data-say="${esc(w.en)}" aria-label="Послушать">🔊</button><span class="tr">${esc(w.ru)}</span><span class="exm">${esc(w.ex)}</span><span class="small muted">${esc(w.exRu)}</span><a class="small" href="${CAMB(w.en)}" target="_blank" rel="noopener">Открыть в Cambridge ↗</a></div>`,'Запоминаем');
+      ws(w.id).seen=true; save();
+      setCheck('Понятно', false); say(w.en); break;
+    case 'en2ru': cur.opts=shuffle([w,...others(3)]);
+      frame(`<div class="prompt">${esc(w.en)}<button class="spk" data-say="${esc(w.en)}" aria-label="Послушать">🔊</button></div>${optsHtml(cur.opts.map(x=>x.ru))}`,'Выберите перевод'); say(w.en); break;
+    case 'ru2en': cur.opts=shuffle([w,...others(3)]);
+      frame(`<div class="prompt ru">${esc(w.ru)}</div>${optsHtml(cur.opts.map(x=>x.en))}`,'Как это по-английски?'); break;
+    case 'listen': cur.opts=shuffle([w,...others(3)]);
+      frame(`<button class="spk huge" data-say="${esc(w.en)}" aria-label="Послушать ещё раз">🔊</button><button class="linkbtn" data-slow="${esc(w.en)}" style="align-self:center">🐢 медленнее</button>${optsHtml(cur.opts.map(x=>x.ru))}`,'Послушайте и выберите перевод'); setTimeout(()=>say(w.en),250); break;
+    case 'gap': cur.opts=shuffle([w,...others(3)]);
+      frame(`<div class="gapline">${esc(w.gap).replace(/___/g,'<span class="blank"></span>')}</div><div class="sub small">${esc(w.exRu)}</div>${optsHtml(cur.opts.map(x=>x===w?w.form:formOf(x)))}`,'Вставьте пропущенное'); break;
+    case 'tiles': {
+      const toks=w.ex.split(' '); cur.toks=toks; cur.pool=shuffle(toks.map((t,i)=>({t,i}))); cur.ans=[];
+      frame(`<div class="prompt ru">${esc(w.exRu)}</div><div class="answer" id="ans"></div><div class="pool" id="pool"></div>`,'Переведите: соберите предложение'); drawTiles(); break; }
+    case 'type':
+      frame(`<div class="prompt ru">${esc(w.ru)}</div><input class="typ" id="typ" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="по-английски"><div class="hint">${hintOf(w.en)}</div>`,'Напишите по-английски');
+      setTimeout(()=>document.getElementById('typ')?.focus(),50); break;
+    case 'match': {
+      cur.left=shuffle(cur.ws); cur.right=shuffle(cur.ws); cur.done=new Set(); cur.sel=null; cur.miss=0;
+      frame(`<div class="pairs" id="pairs"></div>`,'Найдите пары'); drawPairs();
+      document.getElementById('check').hidden=true; break; }
+  }
+}
+function formOf(x){ return x.form; }
+function hintOf(en){ return en.split(' ').map(p=>p[0]+'_'.repeat(Math.max(0,p.length-1))).join('  '); }
+function optsHtml(labels){ return `<div class="opts">${labels.map((l,i)=>`<button class="o" data-opt="${i}">${esc(l)}</button>`).join('')}</div>`; }
+function setCheck(label, disabled){ const b=document.getElementById('check'); b.textContent=label; b.disabled=disabled; b.hidden=false; }
+
+/* tiles */
+function drawTiles(){
+  document.getElementById('ans').innerHTML=cur.ans.map((p,k)=>`<button class="tile" data-back="${k}">${esc(p.t)}</button>`).join('');
+  document.getElementById('pool').innerHTML=cur.pool.map((p,k)=>`<button class="tile ${cur.ans.includes(p)?'used':''}" data-take="${k}">${esc(p.t)}</button>`).join('');
+  setCheck('Проверить', cur.ans.length===0);
+}
+/* pairs */
+function drawPairs(){
+  const cell=(w,side)=>`<button class="o ${cur.done.has(w.id)?'done':''} ${cur.sel&&cur.sel.side===side&&cur.sel.w===w?'sel':''}" data-pair="${side}:${w.id}" ${cur.done.has(w.id)?'disabled':''}>${esc(side==='l'?w.en:w.ru)}</button>`;
+  document.getElementById('pairs').innerHTML=cur.left.map((w,i)=>cell(w,'l')+cell(cur.right[i],'r')).join('');
+}
+
+/* checking */
+function check(){
+  const w=cur.w; let ok=false, right='';
+  if(cur.t==='intro'){ qi++; return next(); }
+  if(['en2ru','ru2en','listen','gap'].includes(cur.t)){
+    const sel=document.querySelector('.o.sel'); if(!sel) return;
+    const i=+sel.dataset.opt; ok=cur.opts[i]===w;
+    document.querySelectorAll('.o').forEach(b=>{ b.disabled=true; if(cur.opts[+b.dataset.opt]===w) b.classList.add('right'); });
+    if(!ok) sel.classList.add('wrong');
+    right = cur.t==='ru2en'?w.en : cur.t==='gap'? w.ex : w.ru;
+  }
+  if(cur.t==='tiles'){
+    const got=cur.ans.map(p=>p.t).join(' '); ok=norm(got)===norm(w.ex); right=w.ex;
+  }
+  if(cur.t==='type'){
+    const v=document.getElementById('typ').value; if(!v.trim()) return;
+    ok=[w.en,...w.acc].map(norm).includes(norm(v)); right=w.en;
+    document.getElementById('typ').disabled=true;
+  }
+  grade(ok, right);
+}
+function grade(ok, right){
+  answered=true; totalCount++;
+  const w=cur.w, s=ws(w.id);
+  if(ok){ combo++; correctCount++; const gain=10+(combo>=5?5:0); sessXp+=gain; s.right++; }
+  else { combo=0; sessWrong.add(w.id); s.wrong++; if(!cur.retry) Q.push({...cur, retry:true, opts:undefined}); }
+  beep(ok); save();
+  const foot=document.getElementById('foot'); foot.classList.add(ok?'ok':'bad');
+  const extra = ok ? (cur.t==='tiles'||cur.t==='type'||cur.t==='gap' ? `<div class="fbx">${esc(w.ex)} — ${esc(w.exRu)}</div>`:'' )
+                   : (right===w.ex ? `<div class="fbx">Правильно: <b>${esc(w.ex)}</b> — ${esc(w.exRu)}</div>`
+                                   : `<div class="fbx">Правильно: <b>${esc(right)}</b></div><div class="fbx small">${esc(w.ex)} — ${esc(w.exRu)}</div>`);
+  document.getElementById('fbArea').innerHTML=`<div class="fb">${ok?(combo>=3?`Верно! 🔥 ${combo} подряд`:'Верно!'):'Не совсем'}</div>${extra}`;
+  setCheck('Дальше', false);
+  document.querySelector('.combo').textContent=combo>=3?'🔥'+combo:'';
+}
+function finish(){
+  const d=dayNo();
+  sessWords.forEach(w=>{ const s=ws(w.id); s.seen=true;
+    if(sessWrong.has(w.id)){ s.lvl=Math.max(0,s.lvl-1); s.due=d; }
+    else { s.lvl=Math.min(5,s.lvl+1); s.due=d+INTERVAL[s.lvl]; } });
+  if(S.lastDay!==d){ S.streak=(S.lastDay===d-1)?S.streak+1:1; S.lastDay=d; }
+  S.xp+=sessXp; S.xpDay[d]=(S.xpDay[d]||0)+sessXp; S.sessions++;
+  S.log.push({day:d, date:new Date().toISOString().slice(0,10), xp:sessXp, right:correctCount, total:totalCount, wrong:[...sessWrong]});
+  if(S.log.length>200) S.log=S.log.slice(-200);
+  save();
+  const acc=totalCount?Math.round(correctCount/totalCount*100):100;
+  app.innerHTML=`<div class="result"><div class="trophy">${acc>=90?'🏆':acc>=70?'💪':'📚'}</div><h1>Тренировка завершена</h1>
+   <div class="stats"><div class="stat"><b>+${sessXp}</b><span>очков</span></div><div class="stat"><b>${acc}%</b><span>точность</span></div><div class="stat"><b>🔥 ${S.streak}</b><span>дней подряд</span></div></div>
+   ${sessWrong.size?`<div class="card" style="text-align:left"><b>Повторить:</b> ${[...sessWrong].map(id=>`${esc(byId[id].en)} — ${esc(byId[id].ru)}`).join('; ')}</div>`:'<p class="muted">Без единой ошибки!</p>'}
+   <button class="big" id="again">Ещё тренировка</button><button class="big ghost" id="toHome">На главную</button></div>`;
+}
+
+/* report for Claude */
+function report(){
+  const d=dayNo();
+  const lines=W.map(w=>{const s=ws(w.id); return `${w.en}: уровень ${s.lvl}/5, верно ${s.right}, ошибок ${s.wrong}`;});
+  const weak=W.filter(w=>ws(w.id).wrong>0).sort((a,b)=>ws(b.id).wrong-ws(a.id).wrong).slice(0,8).map(w=>w.en);
+  const txt=`Тренажёр слов · ${new Date().toISOString().slice(0,10)}\nДней подряд: ${S.streak}, тренировок: ${S.sessions}, очков всего: ${S.xp}\nСложнее всего: ${weak.join(', ')||'—'}\n${lines.join('\n')}`;
+  const box=document.getElementById('reportBox');
+  const fb=()=>{ box.hidden=false; box.value=txt; box.focus(); box.select(); };
+  try{ navigator.clipboard.writeText(txt).then(()=>{ document.getElementById('report').textContent='Скопировано ✓ Вставьте в Telegram'; }, fb); }catch(e){ fb(); }
+}
+
+/* =================== EVENTS =================== */
+app.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.say!==undefined){ say(b.dataset.say); return; }
+  if(b.dataset.slow!==undefined){ say(b.dataset.slow,true); return; }
+  switch(b.id){
+    case 'go': case 'again': return buildSession();
+    case 'toHome': case 'quit': return exitSession();
+    case 'check': return answered? (qi++, next()) : check();
+    case 'report': return report();
+    case 'reset': confirmReset=true; return home();
+    case 'resetNo': confirmReset=false; return home();
+    case 'resetYes': confirmReset=false; S=freshState(); save(); return home();
+  }
+  if(answered) return;
+  if(b.dataset.opt!==undefined){ document.querySelectorAll('.o.sel').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); setCheck('Проверить',false);
+    if(cur.t==='ru2en') say(cur.opts[+b.dataset.opt].en); return; }
+  if(b.dataset.take!==undefined){ const p=cur.pool[+b.dataset.take]; if(!cur.ans.includes(p)){ cur.ans.push(p); drawTiles(); } return; }
+  if(b.dataset.back!==undefined){ cur.ans.splice(+b.dataset.back,1); drawTiles(); return; }
+  if(b.dataset.pair!==undefined){
+    const [side,id]=b.dataset.pair.split(':'); const w=byId[id];
+    if(side==='l') say(w.en);
+    if(!cur.sel || cur.sel.side===side){ cur.sel={side,w}; drawPairs(); return; }
+    if(cur.sel.w===w){ cur.done.add(w.id); cur.sel=null; beep(true); drawPairs();
+      if(cur.done.size===cur.ws.length){ cur.w=cur.ws[0]; answered=true; totalCount++; correctCount+= cur.miss===0?1:0; sessXp+=cur.miss===0?15:5;
+        const foot=document.getElementById('foot'); foot.classList.add('ok');
+        document.getElementById('fbArea').innerHTML=`<div class="fb">${cur.miss?'Все пары найдены':'Идеально! Без ошибок'}</div>`; setCheck('Дальше',false); }
+    } else { cur.miss++; cur.sel=null; beep(false); b.classList.add('wrong'); setTimeout(drawPairs,350); }
+  }
+});
+app.addEventListener('input',e=>{ if(e.target.id==='typ') setCheck('Проверить', !e.target.value.trim()); });
+app.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const c=document.getElementById('check'); if(c && !c.disabled && !c.hidden){ e.preventDefault(); c.click(); } } });
+
+home();
+</script>
+
+</body></html>
