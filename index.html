@@ -162,6 +162,28 @@ const W=[]; SETS.forEach(s=>s.words.forEach(a=>W.push({id:a[0],en:a[1],ru:a[2],e
 const byId=Object.fromEntries(W.map(w=>[w.id,w]));
 const INTERVAL=[0,1,2,4,7,15]; // days until the next review for levels 0..5
 const KEY='babur_words_v1';
+const APP_VERSION='20261112214023'; // build-site.ps1 writes the publish time here
+
+/* Updates: the home-screen app keeps an old copy, so we fetch the page fresh and compare versions.
+   Progress lives in localStorage and survives the reload. */
+let updateReady=false;
+const freshUrl=()=>location.pathname+'?v='+Date.now();
+async function remoteVersion(){
+  const r=await fetch(freshUrl(),{cache:'no-store'}); const t=await r.text();
+  const m=t.match(/APP_VERSION='([^']+)'/); return m?m[1]:null;
+}
+async function autoCheck(){
+  if(APP_VERSION==='__BUILD__' || location.protocol==='file:') return;
+  try{ const v=await remoteVersion(); if(v && v!==APP_VERSION){ updateReady=true; if(document.getElementById('go')) home(); } }catch(e){}
+}
+async function manualUpdate(btn){
+  if(APP_VERSION==='__BUILD__' || location.protocol==='file:'){ location.reload(); return; }
+  btn.textContent='Проверяю…'; btn.disabled=true;
+  try{ const v=await remoteVersion();
+    if(v && v!==APP_VERSION){ btn.textContent='Загружаю новую версию…'; location.replace(freshUrl()); }
+    else { btn.textContent='🔄 Обновить слова'; btn.disabled=false; toast('У вас последняя версия.'); } }
+  catch(e){ btn.textContent='🔄 Обновить слова'; btn.disabled=false; toast('Нет интернета. Попробуйте позже.'); }
+}
 
 /* =================== STATE =================== */
 const dayNo=(d=new Date())=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/86400000);
@@ -235,6 +257,7 @@ function home(){
   const due=dueWords().length, fresh=newWords().length;
   const todayXp=S.xpDay[d]||0;
   app.innerHTML=`<div class="home">
+   ${updateReady?`<button class="big" id="updateTop" style="background:var(--gold);color:#1c1300;box-shadow:0 4px 0 #9a6b05">✨ Есть новые слова — обновить</button>`:''}
    <div><span class="muted small">Тренажёр слов</span><h1>Мои слова</h1></div>
    <div class="stats">
     <div class="stat"><b>🔥 ${streak}</b><span>дней подряд</span></div>
@@ -248,6 +271,7 @@ function home(){
      return `<div class="card wl"><div class="row" style="border-top:0"><b>${esc(set.title)}</b><span class="small muted">${done}/${sw.length}</span></div>${sw.map(w=>{const s=ws(w.id); return `<div class="row"><div><a href="${CAMB(w.en)}" target="_blank" rel="noopener">${esc(w.en)}</a><div class="small muted">${esc(w.ru)}</div></div><div class="dots" title="уровень ${s.lvl} из 5">${[1,2,3,4,5].map(i=>`<i class="${s.lvl>=i?'on':''}"></i>`).join('')}</div></div>`}).join('')}</div>`; }).join('')}
    <p class="small muted">Точки — насколько слово закрепилось. Слово повторяется через 1, 2, 4, 7 и 15 дней. Ошибка возвращает его на шаг назад. Нажмите на слово, и откроется словарь Cambridge.</p>
    <div class="card" style="display:flex;flex-direction:column;gap:8px">
+    <button class="linkbtn" id="update">🔄 Обновить слова</button>
     <button class="linkbtn" id="report">Скопировать отчёт для Claude</button>
     <textarea class="copybox" id="reportBox" readonly hidden></textarea>
     ${confirmReset?`<div class="confirm"><span class="small">Удалить весь прогресс?</span><button class="linkbtn" id="resetYes" style="color:var(--bad)">Да, удалить</button><button class="linkbtn" id="resetNo">Отмена</button></div>`:`<button class="linkbtn" id="reset" style="color:var(--muted)">Сбросить прогресс</button>`}
@@ -403,6 +427,7 @@ app.addEventListener('click',e=>{
     case 'toHome': case 'quit': return exitSession();
     case 'check': return answered? (qi++, next()) : check();
     case 'report': return report();
+    case 'update': case 'updateTop': return manualUpdate(b);
     case 'reset': confirmReset=true; return home();
     case 'resetNo': confirmReset=false; return home();
     case 'resetYes': confirmReset=false; S=freshState(); save(); return home();
@@ -427,6 +452,8 @@ app.addEventListener('input',e=>{ if(e.target.id==='typ') setCheck('Провер
 app.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const c=document.getElementById('check'); if(c && !c.disabled && !c.hidden){ e.preventDefault(); c.click(); } } });
 
 home();
+autoCheck();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') autoCheck(); });
 </script>
 
 </body></html>
