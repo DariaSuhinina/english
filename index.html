@@ -107,6 +107,8 @@ input.typ:focus{outline:none;border-color:var(--accent)}
 .result{display:flex;flex-direction:column;gap:16px;padding:40px 0;text-align:center}
 .result .trophy{font-size:4rem}
 .confirm{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:20;max-width:min(92vw,480px);
+  background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:.92rem;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 .copybox{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -182,11 +184,38 @@ let voice=null;
 function pickVoice(){ if(!('speechSynthesis' in window)) return; const vs=speechSynthesis.getVoices().filter(v=>/^en[-_](US|GB)/i.test(v.lang));
   const r=v=>/samantha|natural|google us/i.test(v.name)?0:/online|google|daniel|karen/i.test(v.name)?1:2; voice=vs.sort((a,b)=>r(a)-r(b))[0]||null; }
 if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
-function say(t, slow){ if(!('speechSynthesis' in window)) return; try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=slow?0.75:0.95; if(voice) u.voice=voice; speechSynthesis.speak(u);}catch(e){} }
+/* iPhone Safari quirks: speech must first be started from a tap (we "unlock" it on the first touch),
+   speak() right after cancel() is often dropped, and the utterance must stay referenced or it can be lost. */
+let ttsUnlocked=false, curUtt=null, sayTimer=null;
+function unlockTTS(){ if(ttsUnlocked || !('speechSynthesis' in window)) return; ttsUnlocked=true;
+  try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; u.lang='en-US'; speechSynthesis.speak(u); }catch(e){} }
+['touchend','click'].forEach(ev=>document.addEventListener(ev, unlockTTS, {passive:true}));
+function say(t, slow){
+  if(!('speechSynthesis' in window)){ toast('Этот браузер не умеет озвучивать слова. Откройте в Safari или Chrome.'); return; }
+  const go=()=>{
+    try{
+      speechSynthesis.resume();
+      const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=slow?0.7:0.95; if(voice) u.voice=voice;
+      let started=false;
+      u.onstart=()=>{ started=true; toast(''); };
+      u.onerror=e=>{ if(!['interrupted','canceled'].includes(e.error)) toast('Озвучка не сработала. Проверьте, что звук включён.'); };
+      curUtt=u; speechSynthesis.speak(u);
+      clearTimeout(sayTimer);
+      sayTimer=setTimeout(()=>{ if(!started) toast('Не слышно? Выключите режим «Без звука» (переключатель сбоку iPhone) и прибавьте громкость.'); },2500);
+    }catch(e){ toast('Озвучка не сработала.'); }
+  };
+  if(speechSynthesis.speaking || speechSynthesis.pending){ speechSynthesis.cancel(); setTimeout(go,80); } else go();
+}
+function toast(msg){
+  let el=document.getElementById('toast');
+  if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent=msg; el.hidden=!msg;
+  clearTimeout(el._t); if(msg) el._t=setTimeout(()=>{ el.hidden=true; },6000);
+}
 
 /* sound effects (short tones) */
 let actx=null;
-function beep(ok){ try{ actx ||= new (window.AudioContext||window.webkitAudioContext)(); const t=actx.currentTime;
+function beep(ok){ try{ actx ||= new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); const t=actx.currentTime;
   (ok?[660,880]:[300,220]).forEach((f,i)=>{ const o=actx.createOscillator(), g=actx.createGain(); o.frequency.value=f; o.type=ok?'sine':'triangle';
     g.gain.setValueAtTime(0.0001,t+i*0.09); g.gain.exponentialRampToValueAtTime(0.18,t+i*0.09+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+i*0.09+0.16);
     o.connect(g).connect(actx.destination); o.start(t+i*0.09); o.stop(t+i*0.09+0.18); }); }catch(e){} }
